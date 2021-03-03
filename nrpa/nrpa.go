@@ -24,7 +24,7 @@ type NRPA struct {
 func NewNRPA(tsptw *entities.TSPTW, levels, nIter, factor int) *NRPA {
 	return &NRPA{
 		NInter:              nIter,
-		DataPerLevel:        make([]*Level, levels+1),
+		DataPerLevel:        make([]*Level, levels),
 		t:                   tsptw,
 		Levels:              levels,
 		StabilizationFactor: factor,
@@ -33,7 +33,7 @@ func NewNRPA(tsptw *entities.TSPTW, levels, nIter, factor int) *NRPA {
 
 func (n *NRPA) StableNRPA(ctx context.Context, level int, nLevel *Level, policy [][]float64) *Rollout {
 	if level == 0 {
-		return nLevel.PlayOut(n.t)
+		return nLevel.PlayOut(n.t, policy)
 	}
 	nLevel.BestRollout.Score = -math.MaxFloat64
 	nextLevel := n.DataPerLevel[level-1]

@@ -85,7 +85,7 @@ func (r *Rollout) calculateLegalMoves(u, step int) {
 				for k := 0; k < r.t.N && !impossibleMove; k++ {
 					if !r.visited[v] {
 						if r.Makespan <= r.t.WindowEnd[k] && r.Makespan+r.t.Distances[u][k] <= r.t.WindowEnd[k] && // is valid u->k
-							math.Max(r.Makespan+r.t.Distances[u][v], r.t.WindowStart[v]) > r.t.WindowEnd[k] { //take u->v make impossible to go to k
+							(r.Makespan+r.t.Distances[u][v] > r.t.WindowEnd[k] || r.t.WindowStart[v] > r.t.WindowEnd[k]) { //take u->v make impossible to go to k
 							impossibleMove = true
 						}
 					}
@@ -129,7 +129,7 @@ func (r *Rollout) move(u, v int) {
 	r.Length++
 	r.visited[v] = true
 	r.cost += r.t.Distances[u][v]
-	r.Makespan = math.Max(r.Makespan+r.t.Distances[u][v], r.t.WindowStart[v])
+	r.Makespan = utils.Max(r.Makespan+r.t.Distances[u][v], r.t.WindowStart[v])
 	if r.Makespan > r.t.WindowEnd[v] {
 		r.Violations++
 	}

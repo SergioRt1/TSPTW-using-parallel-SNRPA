@@ -44,7 +44,7 @@ func LoadInstance(config *cli.Config) error {
 func run(ctx context.Context, config *cli.Config, nrpaInstance *nrpa.NRPA, policy [][]float64, done chan *nrpa.Rollout) {
 	bestRollout := &nrpa.Rollout{Score: -math.MaxFloat64}
 	for i := 0; i < config.NRuns; i++ {
-		rollout := nrpaInstance.StableNRPA(ctx, config.Levels, nrpaInstance.DataPerLevel[config.Levels], policy)
+		rollout := nrpaInstance.StableNRPA(ctx, config.Levels-1, nrpaInstance.DataPerLevel[config.Levels-1], policy)
 		if rollout.Score > bestRollout.Score {
 			bestRollout = rollout
 		}

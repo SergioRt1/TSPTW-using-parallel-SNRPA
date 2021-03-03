@@ -1,9 +1,9 @@
 package cli
 
 import (
+	"flag"
 	"fmt"
 	"strconv"
-	"strings"
 	"time"
 )
 
@@ -16,37 +16,24 @@ type Config struct {
 	StabilizationFactor int
 }
 
-func LoadConfig(args []string) *Config {
-	config := &Config{
-		NRuns:               4,
-		NIter:               10,
-		Levels:              5,
-		Timeout:             time.Hour,
-		FileName:            "rc_201.1.txt",
-		StabilizationFactor: 10,
+var (
+	filename = flag.String("file", "rc_201.1.txt", "file name of a test case")
+	timeout  = flag.String("time", "10000", "execution timeout")
+	factor   = flag.String("factor", "10", "tree stabilization factor")
+	iter     = flag.String("iter", "10", "iterations in the next level, number of children per node")
+	levels   = flag.String("levels", "5", "tree levels")
+	runs     = flag.String("runs", "4", "number of trees")
+)
+
+func LoadConfig() *Config {
+	return &Config{
+		NRuns:               getValue(*runs),
+		NIter:               getValue(*iter),
+		Levels:              getValue(*levels),
+		Timeout:             time.Second*time.Duration(getValue(*timeout)) - (time.Millisecond * 5),
+		FileName:            *filename,
+		StabilizationFactor: getValue(*factor),
 	}
-	for i := 1; i < len(args); i++ {
-		command := strings.Split(args[i], "=")
-		if len(command) == 2 {
-			switch command[0] {
-			case "case":
-				config.FileName = command[1]
-			case "time":
-				config.Timeout = time.Second*time.Duration(getValue(command[1])) - (time.Millisecond * 5)
-			case "iter":
-				config.NIter = getValue(command[1])
-			case "runs":
-				config.NRuns = getValue(command[1])
-			case "levels":
-				config.Levels = getValue(command[1])
-			case "sfactor":
-				config.StabilizationFactor = getValue(command[1])
-			}
-		} else {
-			fmt.Println("an invalid command has been received (using default): " + args[i])
-		}
-	}
-	return config
 }
 
 func getValue(command string) int {

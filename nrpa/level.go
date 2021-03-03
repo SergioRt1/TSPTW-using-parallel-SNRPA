@@ -16,9 +16,9 @@ type Level struct {
 }
 
 //Plays a new rollout
-func (l *Level) PlayOut(t *entities.TSPTW) *Rollout {
+func (l *Level) PlayOut(t *entities.TSPTW, policy [][]float64) *Rollout {
 	rollout := NewRollout(t)
-	rollout.Do(l.Policy)
+	rollout.Do(policy)
 	l.BestRollout = rollout
 	return rollout
 }

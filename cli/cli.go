@@ -21,21 +21,18 @@ func LoadConfig(args []string) *Config {
 		NRuns:               4,
 		NIter:               10,
 		Levels:              5,
-		Timeout:             2,
+		Timeout:             time.Hour,
 		FileName:            "rc_201.1.txt",
 		StabilizationFactor: 10,
 	}
-	if len(args) > 1 {
-		config.FileName = args[1]
-	} else {
-		fmt.Println("No test case has been set, using default rc_201.1.txt")
-	}
-	for i := 2; i < len(args); i++ {
+	for i := 1; i < len(args); i++ {
 		command := strings.Split(args[i], "=")
 		if len(command) == 2 {
 			switch command[0] {
+			case "case":
+				config.FileName = command[1]
 			case "time":
-				config.Timeout = time.Second * time.Duration(getValue(command[1]))
+				config.Timeout = time.Second*time.Duration(getValue(command[1])) - (time.Millisecond * 5)
 			case "iter":
 				config.NIter = getValue(command[1])
 			case "runs":

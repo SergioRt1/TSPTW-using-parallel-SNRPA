@@ -1,9 +1,11 @@
 package nrpa
 
 import (
+	"context"
+	"math"
+
 	"alda/entities"
 	"alda/utils"
-	"math"
 )
 
 const (
@@ -11,21 +13,25 @@ const (
 	alpha  = 1.0
 )
 
-type nrpa struct {
-	NInter       int
-	DataPerLevel []*Level
-	t            *entities.TSPTW
+type NRPA struct {
+	NInter              int
+	DataPerLevel        []*Level
+	StabilizationFactor int
+	Levels              int
+	t                   *entities.TSPTW
 }
 
-func NewNRPA(tsptw *entities.TSPTW, levels, nIter int) *nrpa {
-	return &nrpa{
-		NInter:       nIter,
-		DataPerLevel: make([]*Level, levels+1),
-		t:            tsptw,
+func NewNRPA(tsptw *entities.TSPTW, levels, nIter, factor int) *NRPA {
+	return &NRPA{
+		NInter:              nIter,
+		DataPerLevel:        make([]*Level, levels+1),
+		t:                   tsptw,
+		Levels:              levels,
+		StabilizationFactor: factor,
 	}
 }
 
-func (n *nrpa) StableNRPA(level int, nLevel *Level, policy [][]float64, factor int) *Rollout {
+func (n *NRPA) StableNRPA(ctx context.Context, level int, nLevel *Level, policy [][]float64) *Rollout {
 	if level == 0 {
 		return nLevel.PlayOut(n.t)
 	}
@@ -33,15 +39,15 @@ func (n *nrpa) StableNRPA(level int, nLevel *Level, policy [][]float64, factor i
 	nextLevel := n.DataPerLevel[level-1]
 	utils.CopyPolicy(policy, nLevel.Policy)
 	if level == 1 {
-		for i := 0; i < factor; i++ {
-			_ = n.StableNRPA(level-1, nextLevel, nLevel.Policy, factor)
+		for i := 0; i < n.StabilizationFactor; i++ {
+			_ = n.StableNRPA(ctx, level-1, nextLevel, nLevel.Policy)
 			if nextLevel.BestRollout.Score >= nLevel.BestRollout.Score {
 				nLevel.BestRollout, nextLevel.BestRollout = nextLevel.BestRollout, nLevel.BestRollout
 			}
 		}
 	} else {
 		for i := 0; i < n.NInter; i++ {
-			_ = n.StableNRPA(level-1, nextLevel, nLevel.Policy, factor)
+			_ = n.StableNRPA(ctx, level-1, nextLevel, nLevel.Policy)
 			if nextLevel.BestRollout.Score >= nLevel.BestRollout.Score {
 				nLevel.BestRollout, nextLevel.BestRollout = nextLevel.BestRollout, nLevel.BestRollout
 			}
@@ -52,7 +58,7 @@ func (n *nrpa) StableNRPA(level int, nLevel *Level, policy [][]float64, factor i
 	return nLevel.BestRollout
 }
 
-func (n *nrpa) PreAllocate() [][]float64 {
+func (n *NRPA) PreAllocate() [][]float64 {
 	for i := range n.DataPerLevel {
 		level := &Level{
 			Policy:      make([][]float64, n.t.N),
@@ -72,4 +78,15 @@ func (n *nrpa) PreAllocate() [][]float64 {
 		policyTmp[i] = make([]float64, n.t.N)
 	}
 	return policy
+}
+
+func (n *NRPA) FindCurrentBest() *Rollout {
+	bestRollout := &Rollout{Score: -math.MaxFloat64}
+	for i := n.Levels; i >= 0; i-- {
+		levelBest := *n.DataPerLevel[i].BestRollout
+		if levelBest.Score > bestRollout.Score && levelBest.Length == n.t.N+1 {
+			bestRollout = &levelBest
+		}
+	}
+	return bestRollout
 }

@@ -2,9 +2,11 @@ package tsptw
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"io"
 	"math"
+	"time"
 
 	"alda/cli"
 	"alda/entities"
@@ -13,30 +15,51 @@ import (
 )
 
 func LoadInstance(config *cli.Config) error {
-	b, err := utils.GetFileAsBytes("cases/" + config.FileName)
+	start := time.Now()
+	tsptwInstance, err := loadData(config)
 	if err != nil {
 		return err
 	}
-	reader := bytes.NewReader(b)
-	instance, err := readData(reader)
-	if err != nil {
-		return err
-	}
-	bestRollout := &nrpa.Rollout{
-		Score: -math.MaxFloat64,
-	}
-	nrpaInstance := nrpa.NewNRPA(instance, config.Levels, config.NIter)
+
+	nrpaInstance := nrpa.NewNRPA(tsptwInstance, config.Levels, config.NIter, config.StabilizationFactor)
 	policy := nrpaInstance.PreAllocate()
 
+	done := make(chan *nrpa.Rollout)
+	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
+	defer cancel()
+	go run(ctx, config, nrpaInstance, policy, done)
+	var bestRollout *nrpa.Rollout
+	select {
+	case <-ctx.Done():
+		bestRollout = nrpaInstance.FindCurrentBest()
+		fmt.Println("Finish with timeout in:", time.Since(start))
+	case bestRollout = <-done:
+		fmt.Println("Finish successfully in:", time.Since(start))
+	}
+	fmt.Printf("%v violations: %v, Score: %f,  makespan: %f\n", bestRollout.Tour, bestRollout.Violations, -bestRollout.Score, bestRollout.Makespan)
+
+	return nil
+}
+
+func run(ctx context.Context, config *cli.Config, nrpaInstance *nrpa.NRPA, policy [][]float64, done chan *nrpa.Rollout) {
+	bestRollout := &nrpa.Rollout{Score: -math.MaxFloat64}
 	for i := 0; i < config.NRuns; i++ {
-		rollout := nrpaInstance.StableNRPA(config.Levels, nrpaInstance.DataPerLevel[config.Levels], policy, config.StabilizationFactor)
+		rollout := nrpaInstance.StableNRPA(ctx, config.Levels, nrpaInstance.DataPerLevel[config.Levels], policy)
 		if rollout.Score > bestRollout.Score {
 			bestRollout = rollout
 		}
 	}
-	fmt.Printf("%v violations: %v, Score: %v,  makespan: %v\n", bestRollout.Tour, bestRollout.Violations, bestRollout.Score, bestRollout.Makespan)
+	done <- bestRollout
+}
 
-	return nil
+func loadData(config *cli.Config) (*entities.TSPTW, error) {
+	b, err := utils.GetFileAsBytes("cases/" + config.FileName)
+	if err != nil {
+		return nil, err
+	}
+	reader := bytes.NewReader(b)
+	tsptwInstance, err := readData(reader)
+	return tsptwInstance, err
 }
 
 func readData(reader io.Reader) (*entities.TSPTW, error) {

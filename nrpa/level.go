@@ -15,13 +15,13 @@ type Level struct {
 	BestRollout *Rollout
 }
 
+//Plays a new rollout
 func (l *Level) PlayOut(t *entities.TSPTW) *Rollout {
 	rollout := NewRollout(t)
 	rollout.Do(l.Policy)
 	l.BestRollout = rollout
 	return rollout
 }
-
 
 // Adapt the level policy by increasing the probability of the current BestRollout
 func (l *Level) AdaptPolicy() {

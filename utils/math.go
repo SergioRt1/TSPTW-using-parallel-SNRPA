@@ -32,3 +32,13 @@ func CopyPolicy(a, b [][]float64) {
 		}
 	}
 }
+
+// Copy the content of a inside b
+func CopyMoves(a, b [][]int) {
+	for i := range a {
+		b[i] = b[i][:0]
+		for j := range a[i] {
+			b[i] = append(b[i], a[i][j])
+		}
+	}
+}

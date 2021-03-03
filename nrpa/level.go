@@ -4,10 +4,6 @@ import (
 	"alda/utils"
 )
 
-var (
-	policyTmp [][]float64
-)
-
 // Data structure for each NRPA recursive call (level)
 type Level struct {
 	Policy            [][]float64
@@ -16,7 +12,7 @@ type Level struct {
 }
 
 // Adapt the level policy by increasing the probability of the current BestRollout
-func (l *Level) AdaptPolicy() {
+func (l *Level) AdaptPolicy(policyTmp [][]float64) {
 	var k int
 	u := 0
 	r := l.BestRollout

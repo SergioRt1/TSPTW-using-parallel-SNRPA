@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"sync"
 	"time"
 
 	"alda/cli"
@@ -21,44 +22,37 @@ func LoadInstance(config *cli.Config) error {
 		return err
 	}
 
-	nrpaInstance := nrpa.NewNRPA(tsptwInstance, config.Levels, config.NIter, config.StabilizationFactor)
-	policy := nrpaInstance.PreAllocate()
-
 	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
 	defer cancel()
 
-	var bestRollout *nrpa.Rollout
-	done := runConcurrent(ctx, config, nrpaInstance, tsptwInstance, policy)
-	select {
-	case <-ctx.Done():
-		bestRollout = nrpaInstance.FindCurrentBest()
-		fmt.Println("Finish with timeout in:", time.Since(start))
-	case bestRollout = <-done:
-		fmt.Println("Finish successfully in:", time.Since(start))
-	}
+	bestRollout := runConcurrent(ctx, config, tsptwInstance)
+	fmt.Println("Finish", time.Since(start))
 	fmt.Printf("%v violations: %v, Score: %f,  makespan: %f\n", bestRollout.Tour, bestRollout.Violations, -bestRollout.Score, bestRollout.Makespan)
 
 	return nil
 }
 
-func runConcurrent(ctx context.Context, config *cli.Config, nrpaInstance *nrpa.NRPA, t *entities.TSPTW, policy [][]float64) chan *nrpa.Rollout {
-	done := make(chan *nrpa.Rollout)
-	for i := 0; i < config.StabilizationFactor; i++ {
-		nrpaInstance.Actors[i] = nrpa.StartActor(ctx, t)
-	}
-	go run(config, nrpaInstance, policy, done)
-	return done
-}
+// Runs nRuns trees of NRPA
+func runConcurrent(ctx context.Context, config *cli.Config, t *entities.TSPTW) *nrpa.Rollout {
+	chOut := make(chan *nrpa.Rollout, config.NRuns)
+	var wg sync.WaitGroup
+	best := &nrpa.Rollout{Score: -math.MaxFloat64}
 
-func run(config *cli.Config, nrpaInstance *nrpa.NRPA, policy [][]float64, done chan *nrpa.Rollout) {
-	bestRollout := &nrpa.Rollout{Score: -math.MaxFloat64}
+	wg.Add(config.NRuns)
+	go func() {
+		wg.Wait()
+		close(chOut)
+	}()
 	for i := 0; i < config.NRuns; i++ {
-		rollout := nrpaInstance.StableNRPA(config.Levels-1, nrpaInstance.DataPerLevel[config.Levels-1], policy)
-		if rollout.Score > bestRollout.Score {
-			bestRollout = rollout
+		nrpaInstance := nrpa.NewNRPA(t, config.Levels, config.NIter, config.StabilizationFactor)
+		go nrpaInstance.RunConcurrent(ctx, config, t, chOut, &wg)
+	}
+	for rollout := range chOut {
+		if rollout.Score > best.Score {
+			best = rollout
 		}
 	}
-	done <- bestRollout
+	return best
 }
 
 func loadData(config *cli.Config) (*entities.TSPTW, error) {

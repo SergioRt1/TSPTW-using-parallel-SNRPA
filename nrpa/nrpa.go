@@ -27,35 +27,33 @@ type NRPA struct {
 	Levels              int
 	t                   *entities.TSPTW
 	StaticData          *StaticData
-	Actors              []*actor
+	Actors              []*playoutActor
 }
 
-func NewNRPA(tsptw *entities.TSPTW, levels, nIter, factor int) *NRPA {
+func NewNRPA(tsptw *entities.TSPTW, config *cli.Config, data *StaticData) *NRPA {
 	return &NRPA{
-		NInter:              nIter,
-		DataPerLevel:        make([]*Level, levels),
-		Actors:              make([]*actor, factor),
+		NInter:              config.NIter,
+		DataPerLevel:        make([]*Level, config.Levels),
+		Actors:              make([]*playoutActor, config.PActors),
 		t:                   tsptw,
-		Levels:              levels,
-		StabilizationFactor: factor,
-		StaticData: &StaticData{
-			bestMoves: make([][]int, tsptw.N),
-			policyTmp: make([][]float64, tsptw.N),
-		},
+		Levels:              config.Levels,
+		StabilizationFactor: config.StabilizationFactor,
+		StaticData:          data,
 	}
 }
 
-//Run Parallel Stable NRPA with actors
-func (n *NRPA) RunConcurrent(ctx context.Context, config *cli.Config, t *entities.TSPTW, out chan *Rollout, wg *sync.WaitGroup) {
+//Run Parallel Stable NRPA with actors to compute the leaves
+func (n *NRPA) RunConcurrent(ctx context.Context, levels int, t *entities.TSPTW, out chan *Rollout, wg *sync.WaitGroup) {
 	defer wg.Done()
+	var bestRollout *Rollout
+
 	done := make(chan *Rollout)
-	for i := 0; i < config.StabilizationFactor; i++ {
-		n.Actors[i] = StartActor(ctx, t)
+	for i := range n.Actors {
+		n.Actors[i] = StartPlayoutActor(ctx, t)
 	}
 	policy := n.PreAllocate()
-	var bestRollout *Rollout
 	go func() {
-		done <- n.StableNRPA(config.Levels-1, n.DataPerLevel[config.Levels-1], policy)
+		done <- n.StableNRPA(levels-1, n.DataPerLevel[levels-1], policy)
 	}()
 	select {
 	case <-ctx.Done():
@@ -94,7 +92,7 @@ func (n *NRPA) concurrentPlayout(policy [][]float64, nLevel *Level) {
 		close(chOut)
 	}()
 	for i := 0; i < n.StabilizationFactor; i++ {
-		n.Actors[i].Playout(policy, chOut, &wg)
+		n.Actors[i%len(n.Actors)].Playout(policy, chOut, &wg)
 	}
 
 	for message := range chOut {
@@ -125,24 +123,30 @@ func (n *NRPA) PreAllocate() [][]float64 {
 	for i := range policy {
 		policy[i] = make([]float64, n.t.N)
 	}
-	// Policy instance used as temporary variable for copying
-	for i := range n.StaticData.policyTmp {
-		n.StaticData.policyTmp[i] = make([]float64, n.t.N)
-	}
-	// Legal best moves instance used as temporary variable for copying
-	for i := range n.StaticData.bestMoves {
-		n.StaticData.bestMoves[i] = make([]int, n.t.N)
-	}
 	return policy
 }
 
 func (n *NRPA) FindCurrentBest() *Rollout {
 	bestRollout := &Rollout{Score: -math.MaxFloat64}
-	for i := n.Levels; i >= 0; i-- {
+	for i := n.Levels - 1; i >= 0; i-- {
 		levelBest := *n.DataPerLevel[i].BestRollout
 		if levelBest.Score > bestRollout.Score && levelBest.Length == n.t.N+1 {
 			bestRollout = &levelBest
 		}
 	}
 	return bestRollout
+}
+
+func NewStaticData(t *entities.TSPTW) *StaticData {
+	d := &StaticData{
+		bestMoves: make([][]int, t.N),     // Legal best moves instance used as temporary variable for copying
+		policyTmp: make([][]float64, t.N), // Policy instance used as temporary variable for copying
+	}
+	for i := range d.policyTmp {
+		d.policyTmp[i] = make([]float64, t.N)
+	}
+	for i := range d.bestMoves {
+		d.bestMoves[i] = make([]int, t.N)
+	}
+	return d
 }

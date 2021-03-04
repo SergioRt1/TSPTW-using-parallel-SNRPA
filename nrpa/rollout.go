@@ -3,6 +3,7 @@ package nrpa
 import (
 	"math"
 	"math/rand"
+	"time"
 
 	"alda/entities"
 	"alda/utils"
@@ -24,6 +25,7 @@ type PlayoutData struct {
 	legalMovesPerStep [][]int
 	moveProb          []float64
 	t                 *entities.TSPTW
+	randGen           *rand.Rand
 }
 
 func (d *PlayoutData) Reset() {
@@ -42,6 +44,7 @@ func NewPlayoutData(t *entities.TSPTW) *PlayoutData {
 		moveProb:          make([]float64, t.N),
 		visited:           make([]bool, t.N),
 		t:                 t,
+		randGen:           rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 	for i := range d.legalMovesPerStep {
 		d.legalMovesPerStep[i] = make([]int, 0, t.N)
@@ -120,7 +123,7 @@ func (r *Rollout) pickMove(u, step int, policy [][]float64) int {
 		z += r.d.moveProb[i]
 	}
 	idx := 0
-	random := rand.Float64() * z
+	random := r.d.randGen.Float64() * z
 	probAcc := r.d.moveProb[idx]
 	for probAcc < random {
 		idx++

@@ -25,15 +25,19 @@ func LoadInstance(config *cli.Config) error {
 	ctx, cancel := context.WithTimeout(context.Background(), config.Timeout)
 	defer cancel()
 
-	bestRollout := runConcurrent(ctx, config, tsptwInstance)
-	fmt.Println("Finish", time.Since(start))
-	fmt.Printf("%v violations: %v, Score: %f,  makespan: %f\n", bestRollout.Tour, bestRollout.Violations, -bestRollout.Score, bestRollout.Makespan)
+	nrpaActors := make([]*nrpa.NrpaActor, config.NActors)
+	for i := range nrpaActors {
+		nrpaActors[i] = nrpa.StartNRPAActor(ctx, tsptwInstance)
+	}
+
+	bestRollout := runConcurrent(config, nrpaActors)
+	fmt.Printf("%v violations: %v, Score: %f,  makespan: %f, t: %v\n", bestRollout.Tour, bestRollout.Violations, -bestRollout.Score, bestRollout.Makespan, time.Since(start))
 
 	return nil
 }
 
-// Runs nRuns trees of NRPA
-func runConcurrent(ctx context.Context, config *cli.Config, t *entities.TSPTW) *nrpa.Rollout {
+// Runs nRuns trees of NRPA using the actors
+func runConcurrent(config *cli.Config, actors []*nrpa.NrpaActor) *nrpa.Rollout {
 	chOut := make(chan *nrpa.Rollout, config.NRuns)
 	var wg sync.WaitGroup
 	best := &nrpa.Rollout{Score: -math.MaxFloat64}
@@ -44,8 +48,7 @@ func runConcurrent(ctx context.Context, config *cli.Config, t *entities.TSPTW) *
 		close(chOut)
 	}()
 	for i := 0; i < config.NRuns; i++ {
-		nrpaInstance := nrpa.NewNRPA(t, config.Levels, config.NIter, config.StabilizationFactor)
-		go nrpaInstance.RunConcurrent(ctx, config, t, chOut, &wg)
+		actors[i%len(actors)].RunNRPA(config, chOut, &wg)
 	}
 	for rollout := range chOut {
 		if rollout.Score > best.Score {

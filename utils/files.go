@@ -57,7 +57,7 @@ func readFile(path string) ([]byte, error) {
 	if err == nil {
 		switch mode := info.Mode(); {
 		case mode.IsDir():
-			return nil, errors.New("path '" + path + "' in a directory")
+			return nil, errors.New("path '" + path + "' is a directory")
 		case mode.IsRegular():
 			return ioutil.ReadFile(path)
 		}

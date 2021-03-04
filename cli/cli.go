@@ -2,8 +2,6 @@ package cli
 
 import (
 	"flag"
-	"fmt"
-	"strconv"
 	"time"
 )
 
@@ -14,33 +12,38 @@ type Config struct {
 	Timeout             time.Duration
 	FileName            string
 	StabilizationFactor int
+	NActors             int
+	PActors             int
 }
 
 var (
 	filename = flag.String("file", "rc_201.1.txt", "file name of a test case")
-	timeout  = flag.String("time", "10000", "execution timeout")
-	factor   = flag.String("factor", "10", "tree stabilization factor")
-	iter     = flag.String("iter", "10", "iterations in the next level, number of children per node")
-	levels   = flag.String("levels", "5", "tree levels")
-	runs     = flag.String("runs", "4", "number of trees")
+	timeout  = flag.Int("time", 10000, "execution timeout")
+	factor   = flag.Int("factor", 10, "tree stabilization factor, leaves in the last node")
+	iter     = flag.Int("iter", 10, "iterations in the next level, number of children per node")
+	levels   = flag.Int("levels", 6, "tree levels")
+	runs     = flag.Int("runs", 4, "number of trees")
+	nActors  = flag.Int("nactors", -1, "number of actors that computes the NRPA tree (default runs)")
+	pActors  = flag.Int("pactors", -1, "number of actors that computes the leaves (default factor)")
 )
 
 func LoadConfig() *Config {
+	nAct := *runs
+	pAct := *factor
+	if *nActors > 0 {
+		nAct = *nActors
+	}
+	if *pActors > 0 {
+		pAct = *pActors
+	}
 	return &Config{
-		NRuns:               getValue(*runs),
-		NIter:               getValue(*iter),
-		Levels:              getValue(*levels),
-		Timeout:             time.Second*time.Duration(getValue(*timeout)) - (time.Millisecond * 5),
+		NRuns:               *runs,
+		NIter:               *iter,
+		Levels:              *levels,
+		Timeout:             time.Second*time.Duration(*timeout) - (time.Millisecond * 5),
 		FileName:            *filename,
-		StabilizationFactor: getValue(*factor),
+		StabilizationFactor: *factor,
+		NActors:             nAct,
+		PActors:             pAct,
 	}
-}
-
-func getValue(command string) int {
-	v, err := strconv.Atoi(command)
-	if err != nil {
-		fmt.Println("error parsing value of command (using default): " + command)
-		return 0
-	}
-	return v
 }

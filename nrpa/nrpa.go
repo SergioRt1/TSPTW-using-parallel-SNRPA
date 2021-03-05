@@ -74,6 +74,7 @@ func (n *NRPA) StableNRPA(level int, nLevel *Level, policy [][]float64) *Rollout
 			_ = n.StableNRPA(level-1, nextLevel, nLevel.Policy)
 			if nextLevel.BestRollout.Score >= nLevel.BestRollout.Score {
 				nLevel.BestRollout, nextLevel.BestRollout = nextLevel.BestRollout, nLevel.BestRollout
+				utils.CopyMoves(nextLevel.LegalMovesPerStep, nLevel.LegalMovesPerStep)
 			}
 			nLevel.AdaptPolicy(n.StaticData.policyTmp)
 		}

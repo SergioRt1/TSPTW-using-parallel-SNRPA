@@ -71,6 +71,8 @@ func loadData(config *cli.Config) (*entities.TSPTW, error) {
 func readData(reader io.Reader) (*entities.TSPTW, error) {
 	var n int
 	var err error
+	max := -math.MaxFloat64
+	min := math.MaxFloat64
 
 	if _, err = fmt.Fscanf(reader, "%v\n", &n); err != nil {
 		return nil, utils.InvalidInput
@@ -87,6 +89,12 @@ func readData(reader io.Reader) (*entities.TSPTW, error) {
 			if _, err := fmt.Fscanf(reader, "%v", &vec[j]); err != nil {
 				return nil, utils.InvalidInput
 			}
+			if i != j && vec[j] < min {
+				min = vec[j]
+			}
+			if i != j && vec[j] > max {
+				max = vec[j]
+			}
 		}
 		_, _ = fmt.Fscanf(reader, "\n")
 		instance.Distances[i] = vec
@@ -99,5 +107,7 @@ func readData(reader io.Reader) (*entities.TSPTW, error) {
 		instance.WindowStart = append(instance.WindowStart, s)
 		instance.WindowEnd = append(instance.WindowEnd, e)
 	}
+	instance.Min = min
+	instance.Delta = max - min
 	return &instance, nil
 }

@@ -119,7 +119,7 @@ func (r *Rollout) pickMove(u, step int, policy [][]float64) int {
 	z := float64(0)
 	for i := range r.d.legalMovesPerStep[step] {
 		v := r.d.legalMovesPerStep[step][i]
-		r.d.moveProb[i] = utils.Exp(policy[u][v])
+		r.d.moveProb[i] = utils.Exp(policy[u][v]/tau) + r.d.t.Bias(u, v)
 		z += r.d.moveProb[i]
 	}
 	idx := 0

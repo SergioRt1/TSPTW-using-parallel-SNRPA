@@ -13,6 +13,7 @@ import (
 const (
 	offset = 1000000
 	alpha  = 1.0
+	tau    = 1.4
 )
 
 type StaticData struct {
@@ -74,6 +75,7 @@ func (n *NRPA) StableNRPA(level int, nLevel *Level, policy [][]float64) *Rollout
 			_ = n.StableNRPA(level-1, nextLevel, nLevel.Policy)
 			if nextLevel.BestRollout.Score >= nLevel.BestRollout.Score {
 				nLevel.BestRollout, nextLevel.BestRollout = nextLevel.BestRollout, nLevel.BestRollout
+				utils.CopyMoves(nextLevel.LegalMovesPerStep, nLevel.LegalMovesPerStep)
 			}
 			nLevel.AdaptPolicy(n.StaticData.policyTmp)
 		}
@@ -110,6 +112,8 @@ func (n *NRPA) PreAllocate() [][]float64 {
 			Policy:            make([][]float64, n.t.N),
 			BestRollout:       &Rollout{},
 			LegalMovesPerStep: make([][]int, n.t.N-1),
+			moveProb:          make([]float64, n.t.N),
+			t:                 n.t,
 		}
 		for j := range level.Policy {
 			level.Policy[j] = make([]float64, n.t.N)

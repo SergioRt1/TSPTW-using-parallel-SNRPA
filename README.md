@@ -8,6 +8,8 @@ in [Stabilized Nested Rollout Policy Adaptation](https://arxiv.org/pdf/2101.0356
 The implementation uses an actors model to handle the concurrent computation of the NRPA leaves (playout) and the
 concurrent runs of different trees.
 
+**[Related paper](SNRPA_concurrente_aplicado_a_TSPTW.pdf)** (in spanish)
+
 ## Prerequisites
 
 * [Golang](https://golang.org) 1.14+
@@ -35,7 +37,7 @@ go build main.go
 | time    | int    | Execution timeout in sec                                   | 10000          |
 | factor  | int    | Tree stabilization factor                                  | 10             |
 | iter    | int    | Iterations in the next level (number of children per node) | 10             |
-| levels  | int    | Tree levels                                                | 5              |
+| levels  | int    | Tree levels                                                | 7              |
 | runs    | int    | Number of trees to run                                     | 4              |
 | all     | bool   | read all case files                                        | false          |
 | nactors | int    | number of actors that computes the NRPA tree               | same as runs   |
